@@ -1,0 +1,25 @@
+ FILE *fh;
+    fh = fopen("./test/prova.txt", "r");
+    line_array *arr = line_splitter(argv[1], slots); 
+    for(int i = 0; i < arr->used; i++)
+    {
+      unsigned long s = (arr->list + i)->start, e = (arr->list +i)->offset;
+      fseek(fh, s, SEEK_SET);
+      unsigned long delta = e - s;
+      char *bf = (char *) malloc(delta * sizeof(char));
+      *(bf + delta) = '\0';
+      fread(bf, 1, delta, fh);
+      info("%d:%lu,%lu ==> %s\n", i, s, e, bf);
+    }
+    fclose(fh);
+
+/*create data type*/
+     MPI_Datatype MPI_Line;
+  int block_length[3] = {1024, 1, 1};
+  MPI_Datatype types[3] = {MPI_CHAR, MPI_UNSIGNED_LONG, MPI_UNSIGNED_LONG };
+  MPI_Aint offsets[3];
+  offsets[0] = offsetof(line_t, file_name);
+  offsets[1] = offsetof(line_t, start);
+  offsets[2] = offsetof(line_t, offset);
+  MPI_Type_create_struct(3, block_length, offsets, types, &MPI_Line);
+  MPI_Type_commit(&MPI_Line);
