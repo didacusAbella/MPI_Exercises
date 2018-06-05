@@ -1,51 +1,47 @@
-#include <dirent.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 #include "MapReduce.h"
-#include "Line.h"
-#define LOG_ON 1
-#include "Logger.h"
-#define CHUNK_SIZE 1024
+#include <dirent.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-
-void count_lines(line_array *array, char *path){
-  char buffer[CHUNK_SIZE];
+void count_lines(vector_line *array, char *path)
+{
+  char buffer[MAX_LINE];
   unsigned long start = 0;
   unsigned long offset = 0;
   FILE *fh;
   fh = fopen(path, "r");
   const char nline = '\n';
-  while(fgets(buffer, CHUNK_SIZE, fh)  != NULL)
+  while (fgets(buffer, MAX_LINE, fh) != NULL)
   {
     char *nl = strchr(buffer, nline);
-    if(nl)
+    if (nl)
     {
       int index = nl - buffer;
       offset += (index + 1);
-      line_t *line = new_line(start, offset, path);
-      push_line(array, *line);
+      line_t *line = new_line(path, start, offset);
+      add_line(array, *line);
       start = offset; //start after new line
     }
   }
   fclose(fh);
 }
 
-line_array * line_splitter(const char *directory_path, int slots)
+vector_line *line_splitter(const char *dir_path)
 {
   DIR *directory_handler;
   struct dirent *directory_struct;
-  directory_handler = opendir(directory_path);
-  if(directory_handler != NULL)
+  directory_handler = opendir(dir_path);
+  if (directory_handler != NULL)
   {
-    line_array *array = new_line_array(10);
-    while((directory_struct = readdir(directory_handler)))
+    vector_line *array = new_line_vector(10);
+    while ((directory_struct = readdir(directory_handler)))
     {
-      if(directory_struct->d_name[0] != '.')
+      if (directory_struct->d_name[0] != '.')
       {
-        char *full_path = (char *) malloc((strlen(directory_struct->d_name) + strlen(directory_path) + 2) * sizeof(char));
+        char *full_path = (char *)malloc((strlen(directory_struct->d_name) + strlen(dir_path) + 2) * sizeof(char));
         full_path[0] = '\0';
-        strcat(full_path, directory_path);
+        strcat(full_path, dir_path);
         strcat(full_path, "/");
         strcat(full_path, directory_struct->d_name);
         count_lines(array, full_path);

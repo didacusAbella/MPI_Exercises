@@ -1,47 +1,30 @@
+#include "Line.h"
 #include <stdlib.h>
 #include <string.h>
-#include "Line.h"
 
-line_t * new_line(unsigned long start, unsigned long offset, char *fname)
+line_t * new_line(char *file, unsigned long start, unsigned long offset)
 {
   line_t *line = malloc(sizeof(line_t));
-  strcpy(line->file_name, fname);
+  strcpy(line->file, file);
   line->start = start;
-  line->offset = offset;
+  line->end = offset;
   return line;
 }
 
-void destroy_line(line_t *line)
+void delete_line(line_t *line)
 {
-  free(line->file_name);
+  free(line->file);
   free(line);
 }
 
-line_array * new_line_array(int initial_size)
+void create_mpi_line(MPI_Datatype *ldt)
 {
-  line_array *array = (line_array *) malloc(sizeof(line_array));
-  array->list = (line_t*) malloc(initial_size * sizeof(line_t));
-  array->size = initial_size;
-  array->used = 0;
-  return array;
-}
-
-void destroy_line_array(line_array *array)
-{
-  free(array->list);
-  array->list = NULL;
-  array->used = array->size = 0;
-  free(array);
-  array = NULL;
-}
-
-void push_line(line_array *array, line_t element)
-{
-  if(array->used == array->size)
-  {
-    array->size *= 2;
-    array->list = (line_t *) realloc(array->list, array->size * sizeof(line_t));
-  }
-  array->list[array->used] = element;
-  array->used++;
+  int block_length[3] = {1024, 1, 1};
+  MPI_Datatype types[3] = {MPI_CHAR, MPI_UNSIGNED_LONG, MPI_UNSIGNED_LONG};
+  MPI_Aint offsets[3];
+  offsets[0] = offsetof(line_t, file);
+  offsets[1] = offsetof(line_t, start);
+  offsets[2] = offsetof(line_t, end);
+  MPI_Type_create_struct(3, block_length, offsets, types, ldt);
+  MPI_Type_commit(ldt);
 }

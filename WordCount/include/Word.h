@@ -1,11 +1,16 @@
 #ifndef WORD_H
 #define WORD_H
-typedef struct word_t
+#define MAX_WORD 100
+#include <mpi.h>
+typedef struct 
 {
-  char *word;
+  char word[MAX_WORD];
   int frequency;
-}word_t;
+} word_t;
 
 word_t * new_word(char *word);
-void destroy_word(word_t *word);
-#endif /* WORD_H */
+
+void delete_word(word_t *word);
+
+void create_mpi_word(MPI_Datatype *wdt);
+#endif

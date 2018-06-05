@@ -1,64 +1,56 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mpi.h>
-#include <string.h>
-#define LOG_ON 1
-#include "Logger.h"
-#include <unistd.h>
-#include "MapReduce.h"
 #include "WordCount.h"
+#include "MapReduce.h"
 
-void send_lines(line_array *array, int rank, int slots)
-{
-  MPI_Datatype MPI_Line;
-  int block_length[3] = {1024, 1, 1};
-  MPI_Datatype types[3] = {MPI_CHAR, MPI_UNSIGNED_LONG, MPI_UNSIGNED_LONG};
-  MPI_Aint offsets[3];
-  offsets[0] = offsetof(line_t, file_name);
-  offsets[1] = offsetof(line_t, start);
-  offsets[2] = offsetof(line_t, offset);
-  MPI_Type_create_struct(3, block_length, offsets, types, &MPI_Line);
-  MPI_Type_commit(&MPI_Line);
-  int *displacement, *slots_elements;
-  int offset = 0;
-  int size = array->used / (slots - 1);
-  int remains = array->used % (slots - 1);
-  int d = (remains == 0) ? size + 1 : size;
-  line_t *recv_lines = malloc(d * sizeof(line_t));
-  displacement = malloc(slots * sizeof(int));
-  slots_elements = malloc(slots * sizeof(int));
-  /*Master not read anything*/
-  *(slots_elements + 0) = 0;
-  *(displacement + 0) = 0;
-  //Fill displacement
-  for (int i = 1; i < slots; i++)
-  {
-    int t_size = (remains != 0 && i <= remains) ? size + 1 : size;
-    *(slots_elements + i) = t_size;
-    *(displacement + i) = offset;
-    offset += t_size;
-  }
-  MPI_Scatterv(array->list, slots_elements, displacement, MPI_Line, recv_lines, d, MPI_Line, 0, MPI_COMM_WORLD);
-  if(rank > 0)
-  {
-    for(int i = 0; i < slots_elements[rank]; i++)
-    {
-      info("Rank:%d, File:%s, Inizio:%lu, Fine:%lu\n", rank, (recv_lines+i)->file_name, (recv_lines+i)->start, (recv_lines+i)->offset);
-    }
-  }
-  MPI_Type_free(&MPI_Line);
-  free(slots_elements);
-  free(displacement);
-}
-
-int main(int argc, char **argv)
-{
-  int slots, rank;
+int main(int argc, char **argv){
+  int rank, tasks;
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &slots);
-  line_array *array = line_splitter(argv[1], slots);
-  send_lines(array, rank, slots);
+  MPI_Comm_size(MPI_COMM_WORLD, &tasks);
+  MPI_Datatype MPI_Line;
+  MPI_Datatype MPI_Word;
+  create_mpi_line(&MPI_Line);
+  create_mpi_word(&MPI_Word);
+  vector_line *arr;
+  vector_line *lines;
+  arr = line_splitter(argv[1]);
+  lines = send_lines(arr, rank, tasks, MPI_Line);
+  if(rank > 0)
+  {
+    map(lines, tasks, rank);
+  }
+  MPI_Type_free(&MPI_Line);
+  MPI_Type_free(&MPI_Word);
   MPI_Finalize();
   exit(EXIT_SUCCESS);
+}
+
+vector_line * send_lines(vector_line *arr, int rank, int tasks, MPI_Datatype dt)
+{
+  int *displacements, *tasks_elements;
+  int offset = 0;
+  int task_size = arr->used / (tasks - 1);
+  int remains = arr->used % (tasks - 1);
+  displacements = malloc(tasks * sizeof(int));
+  tasks_elements = malloc(tasks * sizeof(int));
+  *(tasks_elements + 0) = 0;
+  *(displacements + 0) = 0;
+  for(int i = 1; i < tasks; i++)
+  {
+    int t_size = (remains != 0 && i <= remains) ? task_size + 1 : task_size;
+    *(tasks_elements + i) = t_size;
+    *(displacements + i) = offset;
+    offset += t_size;
+  }
+  line_t *receive_lines = malloc(tasks_elements[rank] * sizeof(line_t)); 
+  MPI_Scatterv(arr->lines, tasks_elements, displacements, dt, receive_lines, tasks_elements[rank], dt, 0, MPI_COMM_WORLD);
+  vector_line *vl = new_line_vector(tasks_elements[rank]);
+  vl->lines = receive_lines;
+  vl->used = tasks_elements[rank];
+  vl->size = tasks_elements[rank];
+  free(displacements);
+  free(tasks_elements);
+  return vl;
 }
