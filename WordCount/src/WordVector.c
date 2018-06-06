@@ -1,5 +1,6 @@
 #include "WordVector.h"
 #include <stdlib.h>
+#include <string.h>
 
 vector_word * new_word_vector(int initial_size)
 {
@@ -24,4 +25,15 @@ void add_word(vector_word *vector, word_t word)
   }
   vector->words[vector->used] = word;
   vector->used++;
+}
+
+int contains_word(vector_word *vector, char *word)
+{
+  for(int i = 0; i < vector->used; i++)
+  {
+    if(strcmp(vector->words[i].word, word) == 0){
+      return i;
+    }
+  }
+  return -1;
 }

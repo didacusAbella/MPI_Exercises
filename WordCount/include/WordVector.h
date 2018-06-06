@@ -13,4 +13,6 @@ vector_word * new_word_vector(int initial_size);
 void delete_word_vector(vector_word *vector);
 
 void add_word(vector_word *vector, word_t line);
+
+int contains_word(vector_word *vector, char *word);
 #endif

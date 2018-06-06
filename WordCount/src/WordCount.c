@@ -17,9 +17,19 @@ int main(int argc, char **argv){
   vector_line *lines;
   arr = line_splitter(argv[1]);
   lines = send_lines(arr, rank, tasks, MPI_Line);
-  if(rank > 0)
+  if(rank >  0)
   {
-    map(lines, tasks, rank);
+    vector_word *vmap = map(lines);
+    vector_word *vreduce = reduce(vmap);
+    int index = 0;
+    while(index < vreduce->used)
+    {
+      printf("%s -- %d\n", vreduce->words[index].word, vreduce->words[index].frequency);
+      index++;
+    }
+    delete_line_vector(lines);
+    delete_word_vector(vmap);
+    //delete_word_vector(vreduce);
   }
   MPI_Type_free(&MPI_Line);
   MPI_Type_free(&MPI_Word);

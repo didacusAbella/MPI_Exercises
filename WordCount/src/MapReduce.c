@@ -55,3 +55,63 @@ vector_line *line_splitter(const char *dir_path)
     return NULL;
   }
 }
+vector_word *map(vector_line *vector)
+{
+  FILE *fh;
+  char path[1024];
+  char *token;
+  vector_word *array = new_word_vector(20);
+  strcpy(path, vector->lines[0].file);
+  fh = fopen(path, "r");
+  for (int i = 0; i < vector->used; i++)
+  {
+
+    if (strcmp(path, vector->lines[i].file) != 0)
+    {
+      fclose(fh);
+      memset(path,0,strlen(path));
+      strcpy(path, vector->lines[i].file);
+      fh = fopen(path, "r");
+    }
+    unsigned long s = (vector->lines + i)->start, e = (vector->lines + i)->end;
+    fseek(fh, s, SEEK_SET);
+    unsigned long delta = e - s;
+    char *bf = (char *)malloc(delta * sizeof(char));
+    *(bf + delta) = '\0';
+    fread(bf, 1, delta, fh);
+    token = strtok(bf, TOKENIZER);
+    while(token != NULL)
+    {
+      if(strcmp(token, "\n") == 0)
+      {
+        continue;
+      }
+      else
+      {
+      word_t *wd = new_word(token);
+      add_word(array, *wd);
+      }
+      token = strtok(NULL, TOKENIZER);
+    }
+  }
+  return array;
+}
+
+vector_word * reduce(vector_word *vector)
+{
+  vector_word *local_histogram = new_word_vector(10);
+  int size = vector->used;
+  for(int i = 0; i < size; i++)
+  {
+    int index = contains_word(local_histogram, vector->words[i].word);
+    if(index >= 0)
+    {
+      local_histogram->words[index].frequency += vector->words[i].frequency;
+    }
+    else
+    {
+      add_word(local_histogram, *new_word(vector->words[i].word));
+    }
+  }
+  return local_histogram;
+}
