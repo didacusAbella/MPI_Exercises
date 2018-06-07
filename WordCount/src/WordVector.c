@@ -2,13 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-vector_word * new_word_vector(int initial_size)
+void  new_word_vector(int initial_size, vector_word *vector)
 {
-  vector_word *vector = malloc(sizeof(vector_word));
   vector->words = malloc(initial_size * sizeof(word_t));
   vector->size = initial_size;
   vector->used = 0;
-  return vector;
 }
 
 void delete_word_vector(vector_word *vector)

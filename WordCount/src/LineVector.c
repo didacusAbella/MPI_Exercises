@@ -1,13 +1,11 @@
 #include "LineVector.h"
 #include <stdlib.h>
 
-vector_line * new_line_vector(int initial_size)
+void new_line_vector(int initial_size, vector_line *vector)
 {
-  vector_line *vector = malloc(sizeof(vector_line));
   vector->lines = malloc(initial_size * sizeof(line_t));
   vector->size = initial_size;
   vector->used = 0;
-  return vector;
 }
 
 void delete_line_vector(vector_line *vector)

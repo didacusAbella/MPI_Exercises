@@ -8,7 +8,7 @@ typedef struct
   word_t *words;
 } vector_word;
 
-vector_word * new_word_vector(int initial_size);
+void new_word_vector(int initial_size, vector_word *vector);
 
 void delete_word_vector(vector_word *vector);
 

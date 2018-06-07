@@ -27,14 +27,14 @@ void count_lines(vector_line *array, char *path)
   fclose(fh);
 }
 
-vector_line *line_splitter(const char *dir_path)
+void line_splitter(const char *dir_path, vector_line *all_lines)
 {
   DIR *directory_handler;
   struct dirent *directory_struct;
   directory_handler = opendir(dir_path);
   if (directory_handler != NULL)
   {
-    vector_line *array = new_line_vector(10);
+    new_line_vector(10, all_lines);
     while ((directory_struct = readdir(directory_handler)))
     {
       if (directory_struct->d_name[0] != '.')
@@ -44,23 +44,22 @@ vector_line *line_splitter(const char *dir_path)
         strcat(full_path, dir_path);
         strcat(full_path, "/");
         strcat(full_path, directory_struct->d_name);
-        count_lines(array, full_path);
+        count_lines(all_lines, full_path);
       }
     }
     closedir(directory_handler);
-    return array;
   }
   else
   {
-    return NULL;
+    perror("Errore apertura della directory\n");
   }
 }
-vector_word *map(vector_line *vector)
+void map(vector_line *vector, vector_word *mvector)
 {
   FILE *fh;
   char path[1024];
   char *token;
-  vector_word *array = new_word_vector(20);
+  new_word_vector(20, mvector);
   strcpy(path, vector->lines[0].file);
   fh = fopen(path, "r");
   for (int i = 0; i < vector->used; i++)
@@ -89,29 +88,26 @@ vector_word *map(vector_line *vector)
       else
       {
       word_t *wd = new_word(token);
-      add_word(array, *wd);
+      add_word(mvector, *wd);
       }
       token = strtok(NULL, TOKENIZER);
     }
   }
-  return array;
 }
 
-vector_word * reduce(vector_word *vector)
+void reduce(vector_word *vector, vector_word *cvector)
 {
-  vector_word *local_histogram = new_word_vector(10);
-  int size = vector->used;
-  for(int i = 0; i < size; i++)
+  new_word_vector(10, cvector);
+  for(int i = 0; i < vector->used; i++)
   {
-    int index = contains_word(local_histogram, vector->words[i].word);
+    int index = contains_word(cvector, vector->words[i].word);
     if(index >= 0)
     {
-      local_histogram->words[index].frequency += vector->words[i].frequency;
+      cvector->words[index].frequency += vector->words[i].frequency;
     }
     else
     {
-      add_word(local_histogram, *new_word(vector->words[i].word));
+      add_word(cvector, *new_word(vector->words[i].word));
     }
   }
-  return local_histogram;
 }
