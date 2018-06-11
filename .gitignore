@@ -7,6 +7,9 @@
 # Unignore all dirs
 !*/
 
+# Unignore makefile
+!*Makefile
+
 # Ignore .o files
 *.o
 .vscode
