@@ -1,49 +1,47 @@
+#include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <mpi.h>
 #include "WordCount.h"
 #include "MapReduce.h"
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv){
   int rank, tasks;
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &tasks);
-  MPI_Datatype MPI_Line;
+  /************* Create custom datatypes *****/
   MPI_Datatype MPI_Word;
-  create_mpi_line(&MPI_Line);
-  create_mpi_word(&MPI_Word);
-  vector_line *all_lines;
-  vector_line *tasks_lines;
-  vector_word *mvector;
-  vector_word cvector;
-  vector_word *rc_words;
-  vector_word rvector;
+  MPI_Datatype MPI_Line;
+  MPI_Type_create_struct(3, line_length, line_addresses, line_types, &MPI_Line);
+  MPI_Type_create_struct(2, word_length, word_addresses, word_types, &MPI_Word);
+  MPI_Type_commit(&MPI_Line);
+  MPI_Type_commit(&MPI_Word);
+  /*******************************************/
+  task_t *master_task, *slave_task;
   if(rank == MASTER)
   {
-    all_lines = (vector_line *) malloc(sizeof(vector_line));
-    line_splitter(argv[1], all_lines);
+    task_ctor(&master_task, 10, 10);
+    line_splitter(argv[1], &master_task);
   }
-  tasks_lines = send_lines(all_lines, rank, tasks, MPI_Line);
+  send_lines(&master_task, rank, tasks, MPI_Line, &slave_task);
   if(rank > MASTER)
   {
-    mvector = (vector_word *) malloc(sizeof(vector_word));
-    map(tasks_lines, mvector);
-    delete_line_vector(tasks_lines);
-    reduce(mvector, &cvector);
-    delete_word_vector(mvector);
+    map(&slave_task);
+    reduce(&slave_task);
   }
-  rc_words = receive_words(&cvector, MPI_Word, tasks, rank);
+  receive_words(&slave_task, rank, tasks, MPI_Word, &master_task);
   if(rank == MASTER)
   {
-    delete_line_vector(all_lines);
-    reduce(rc_words, &rvector);
-    for(int i = 0; i < rvector.used; i++)
-    {
-      printf("%s - %d\n", rvector.words[i].word, rvector.words[i].frequency);
-    }
-    delete_word_vector(rc_words);
+    reduce(&master_task);
+    print_words(master_task);
+  }
+  if(rank == MASTER)
+  {
+    task_dtor(master_task);
+  }
+  else
+  {
+    task_dtor(slave_task);
   }
   MPI_Type_free(&MPI_Line);
   MPI_Type_free(&MPI_Word);
@@ -51,75 +49,50 @@ int main(int argc, char **argv)
   exit(EXIT_SUCCESS);
 }
 
-vector_line *send_lines(vector_line *arr, int rank, int tasks, MPI_Datatype dt)
+void send_lines(task_t **send_buffer, int rank, int tasks, MPI_Datatype MPI_Line, task_t **receive_buffer)
 {
-  int rcv_lines;
-  int *task_elements;
-  int *displacement;
+  int rcv_size;
+  int tasks_elements[tasks];
+  int displacements[tasks];
   if(rank == MASTER)
   {
+    int size = (*send_buffer)->lines_used / (tasks - 1);
+    int remains = (*send_buffer)->lines_used % (tasks - 1);
     int offset = 0;
-    int task_size = arr->used / (tasks - 1);
-    int remains = arr->used % (tasks - 1);
-    task_elements = malloc(tasks*sizeof(int));
-    displacement = malloc(tasks*sizeof(int));
-    *(task_elements + 0) = 0;
-    *(displacement + 0) = 0;
+    tasks_elements[0] = 0;
+    displacements[0] = 0;
     for(int i = 1; i < tasks; i++)
     {
-      int t_size = (remains != 0 && i <= remains) ? task_size + 1 : task_size;
-      *(task_elements + i) = t_size;
-      *(displacement + i) = offset;
-      offset += t_size;
+      int true_size = (remains != 0 && i <= remains) ? size + 1 : size;
+      tasks_elements[i] = true_size;
+      displacements[i] = offset;
+      offset += true_size;
     }
   }
-  MPI_Scatter(task_elements, 1, MPI_INT, &rcv_lines, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
-  line_t *buff_lines = malloc(rcv_lines *sizeof(line_t));
-  MPI_Scatterv(arr->lines, task_elements, displacement, dt, buff_lines, rcv_lines, dt, MASTER, MPI_COMM_WORLD);
-  vector_line *vl = malloc(sizeof(vector_line));
-  vl->size = rcv_lines;
-  vl->used = rcv_lines;
-  vl->lines = buff_lines;
-  if(rank == MASTER)
-  {
-    free(displacement);
-    free(task_elements);
-  }
-  return vl;
+  MPI_Scatter(tasks_elements, 1, MPI_INT, &rcv_size, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
+  task_ctor(receive_buffer, rcv_size, rcv_size);
+  (*receive_buffer)->lines_used = rcv_size;
+  MPI_Scatterv((*send_buffer)->task_lines, tasks_elements, displacements, MPI_Line, (*receive_buffer)->task_lines, rcv_size, MPI_Line, MASTER, MPI_COMM_WORLD);
 }
 
-vector_word *receive_words(vector_word *arr, MPI_Datatype dt, int tasks, int rank)
+void receive_words(task_t **send_buffer, int rank, int tasks, MPI_Datatype MPI_Word, task_t **receive_buffer)
 {
-  int *receive_size;
-  int *displacement;
-  word_t *receive_ws;
+  int receive_size[tasks];
+  int displacement[tasks];
   int offset = 0;
-  int size = (rank == MASTER) ? 0 : arr->used;
-  if(rank == MASTER)
-  {
-    receive_size = malloc(tasks*sizeof(int));
-    displacement = malloc(tasks*sizeof(int));
-  }
+  int size = (rank == MASTER) ? 0 : (*send_buffer)->words_used;
   MPI_Gather(&size, 1, MPI_INT, receive_size, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
   if(rank == MASTER)
   {
-    *(displacement + 0) = 0;
+    displacement[0] = 0;
     for(int i = 1; i < tasks; i++)
     {
-      *(displacement + i) = offset;
-      offset += *(receive_size + i);
+      displacement[i] = offset;
+      offset += receive_size[i];
     }
-    receive_ws = (word_t *) malloc(offset *sizeof(word_t));
+    (*receive_buffer)->task_words = realloc((*receive_buffer)->task_words, offset * sizeof(word_t));
+    (*receive_buffer)->word_size = offset;
+    (*receive_buffer)->words_used = offset;
   }
-  MPI_Gatherv(arr->words, size, dt, receive_ws, receive_size, displacement, dt, MASTER, MPI_COMM_WORLD);
-  vector_word *vw = malloc(sizeof(vector_word));
-  vw->used = offset;
-  vw->size = offset;
-  vw->words = receive_ws;
-  if(rank == MASTER)
-  {
-    free(receive_size);
-    free(displacement);
-  }
-  return vw;
+  MPI_Gatherv((*send_buffer)->task_words, size, MPI_Word, (*receive_buffer)->task_words, receive_size, displacement, MPI_Word, MASTER, MPI_COMM_WORLD);
 }

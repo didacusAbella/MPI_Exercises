@@ -1,30 +1,25 @@
-#include "Line.h"
-#include <stdlib.h>
 #include <string.h>
+#include <stdlib.h>
+#include <mpi.h>
+#include "Line.h"
 
-line_t * new_line(char *file, unsigned long start, unsigned long offset)
+void line_ctor(line_t **self, char *path, unsigned long start, unsigned long end)
 {
-  line_t *line = malloc(sizeof(line_t));
-  strcpy(line->file, file);
-  line->start = start;
-  line->end = offset;
-  return line;
+  *self = NULL;
+  *self = (line_t *) malloc(sizeof(line_t));
+  strcpy((*self)->file, path);
+  (*self)->start = start;
+  (*self)->end = end;
 }
 
-void delete_line(line_t *line)
+void line_dtor(line_t *self)
 {
-  free(line->file);
-  free(line);
+  if(self)
+  {
+    free(self);
+  }
 }
 
-void create_mpi_line(MPI_Datatype *ldt)
-{
-  int block_length[3] = {1024, 1, 1};
-  MPI_Datatype types[3] = {MPI_CHAR, MPI_UNSIGNED_LONG, MPI_UNSIGNED_LONG};
-  MPI_Aint offsets[3];
-  offsets[0] = offsetof(line_t, file);
-  offsets[1] = offsetof(line_t, start);
-  offsets[2] = offsetof(line_t, end);
-  MPI_Type_create_struct(3, block_length, offsets, types, ldt);
-  MPI_Type_commit(ldt);
-}
+const int line_length[3] = {255, 1, 1};
+const MPI_Datatype line_types[3] = { MPI_CHAR, MPI_UNSIGNED_LONG, MPI_UNSIGNED_LONG };
+const MPI_Aint line_addresses[3] = { offsetof(line_t, file), offsetof(line_t, start), offsetof(line_t, end) };

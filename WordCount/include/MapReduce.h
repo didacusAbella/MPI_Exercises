@@ -1,10 +1,9 @@
 #ifndef MAPREDUCE_H
 #define MAPREDUCE_H
+#include "Task.h"
 #define TOKENIZER " \r\n,?!.;"
-#include "LineVector.h"
-#include "WordVector.h"
-
-void line_splitter(const char *dir_path, vector_line *all_lines);
-void map(vector_line *vector, vector_word *mvector);
-void reduce(vector_word *vector, vector_word *cvector);
+#define MAX_LINE_BUFFER 1024
+void line_splitter(const char *dir_path, task_t **master_task);
+void map(task_t **slave_task);
+void reduce(task_t **slave_task);
 #endif

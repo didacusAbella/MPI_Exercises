@@ -1,18 +1,30 @@
 #ifndef LINE_H
 #define LINE_H
-#define MAX_LINE 1024
 #include <mpi.h>
-
-typedef struct 
+#define MPI_LINE_OFFSETS { offsetof(line_t, file), offsetof(line_t, start), offsetof(line_t, end) }
+#define PATH_LENGTH 255
+typedef struct
 {
-  char file[MAX_LINE];
+  char file[PATH_LENGTH];
   unsigned long start;
   unsigned long end;
 }line_t;
 
-line_t * new_line(char *file, unsigned long start, unsigned long offset);
 
-void delete_line(line_t *line);
+/**
+ * Allocation plus initialization
+ **/
+void line_ctor(line_t **self, char *path, unsigned long start, unsigned long end);
 
-void create_mpi_line(MPI_Datatype *ldt);
-#endif /*LINE_H*/
+/**
+ * Deallocation + reset
+ **/
+void line_dtor(line_t *self);
+
+extern const int line_length[3];
+
+extern const MPI_Datatype line_types[3];
+
+extern const MPI_Aint line_addresses[3];
+
+#endif
