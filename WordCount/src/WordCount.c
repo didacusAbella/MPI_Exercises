@@ -17,9 +17,11 @@ int main(int argc, char **argv){
   MPI_Type_commit(&MPI_Line);
   MPI_Type_commit(&MPI_Word);
   /*******************************************/
+  double start_time, end_time;
   task_t *master_task, *slave_task;
   if(rank == MASTER)
   {
+    start_time = MPI_Wtime();
     task_ctor(&master_task, 10, 10);
     line_splitter(argv[1], &master_task);
   }
@@ -38,6 +40,9 @@ int main(int argc, char **argv){
   if(rank == MASTER)
   {
     task_dtor(master_task);
+    end_time = MPI_Wtime();
+    double tot = end_time - start_time;
+    printf("Tempo: %g\n", tot);
   }
   else
   {
