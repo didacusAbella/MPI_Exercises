@@ -18,10 +18,10 @@ void word_ctor(word_t **self, char *word);
  **/
 void word_dtor(word_t *self);
 
-extern const int word_length[2];
+extern int word_length[2];
 
-extern const MPI_Datatype word_types[2];
+extern MPI_Datatype word_types[2];
 
-extern const MPI_Aint word_addresses[2];
+extern MPI_Aint word_addresses[2];
 
 #endif

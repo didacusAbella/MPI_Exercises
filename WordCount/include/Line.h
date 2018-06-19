@@ -21,10 +21,10 @@ void line_ctor(line_t **self, char *path, unsigned long start, unsigned long end
  **/
 void line_dtor(line_t *self);
 
-extern const int line_length[3];
+extern int line_length[3];
 
-extern const MPI_Datatype line_types[3];
+extern MPI_Datatype line_types[3];
 
-extern const MPI_Aint line_addresses[3];
+extern MPI_Aint line_addresses[3];
 
 #endif

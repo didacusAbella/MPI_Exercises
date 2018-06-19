@@ -36,9 +36,6 @@ int main(int argc, char **argv){
   {
     reduce(&master_task);
     print_words(master_task);
-  }
-  if(rank == MASTER)
-  {
     task_dtor(master_task);
     end_time = MPI_Wtime();
     double tot = end_time - start_time;

@@ -20,6 +20,8 @@ void line_dtor(line_t *self)
   }
 }
 
-const int line_length[3] = {255, 1, 1};
-const MPI_Datatype line_types[3] = { MPI_CHAR, MPI_UNSIGNED_LONG, MPI_UNSIGNED_LONG };
-const MPI_Aint line_addresses[3] = { offsetof(line_t, file), offsetof(line_t, start), offsetof(line_t, end) };
+int line_length[3] = {255, 1, 1};
+
+MPI_Datatype line_types[3] = { MPI_CHAR, MPI_UNSIGNED_LONG, MPI_UNSIGNED_LONG };
+
+MPI_Aint line_addresses[3] = { offsetof(line_t, file), offsetof(line_t, start), offsetof(line_t, end) };

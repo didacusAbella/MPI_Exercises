@@ -16,8 +16,8 @@ void word_dtor(word_t *self)
   }
 }
 
-const int word_length[2] =  {100, 1};
+int word_length[2] =  {100, 1};
 
-const MPI_Datatype word_types[2] = {MPI_CHAR, MPI_INT};
+MPI_Datatype word_types[2] = {MPI_CHAR, MPI_INT};
 
-const MPI_Aint word_addresses[2] = { offsetof(word_t, text), offsetof(word_t, frequency) };
+MPI_Aint word_addresses[2] = { offsetof(word_t, text), offsetof(word_t, frequency) };
