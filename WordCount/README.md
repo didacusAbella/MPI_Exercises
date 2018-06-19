@@ -51,11 +51,32 @@ Che vengono aggiunge ad un array.
 Ogni slave effettua localmente il conteggio del proprio array di parole e il risultato viene trasferito in un nuovo array più compatto.
 
 ### Fase di Reduce
-Ogni slave manda al master il proprio array con la funzione __MPI_Gatherv__ e quest'ultimo usa la funzione __reduce__ per calcolare le frequenze totali che ridirige sullo standard output. Anche in questo caso per inviare porzioni di memoria con contigue è stato utilizzato __MPI_crete_struct__.
+Ogni slave manda al master il proprio array con la funzione __MPI_Gatherv__ e quest'ultimo usa la funzione __reduce__ per calcolare le frequenze totali che ridirige sullo standard output. Anche in questo caso per inviare porzioni di memoria con contigue è stato utilizzato __MPI_create_struct__.
 
 ## Benchmark
-Qui si inseriranno le caratteristiche del cluster e la size del problema
+Sono stati effettuati i benchmark con la seguente configurazione:
+
+### Hardware
+
+| Numero Istanze | VCore per istanza | RAM per istanza | Storage SSD per istanza | Larghezza di banda EBS dedicata(Mb/s) |
+|----------------|-------------------|-----------------|-------------------------|---------------------------------------|
+|8               |2                  |8                |Solo EBS                 |450                                    |
+
+### Software
+
+| Sistema Operativo | Versione OpenMPI | Versione GCC |
+|-------------------|------------------|--------------|
+| Ubuntu 12.04      |1.4.3             |4.6.3         |
+
 ## Weak Scaling
-Qui si metterà su grafico il weak scaling
+Il weak scaling è stato misurato mantenendo costante il numero di linee all'aumentare dei worker ed è pari a 300 linee.
+
+![weak scaling image](/img/weak_scaling.png)
+
+Dal grafico si nota che all'aumentare dei processori il tempo di esecuzione dell'algoritmo aumenta e questo è dovuto al fatto che il master deve leggere tutti i file per contare le linee complessive e decidere le porzioni che devono leggere i rispettivi slave. Quindi maggiori saranno le linee da processare, maggiore sarà il tempo necessario per il master a processarle tutte e di conseguenza il tempo di esecuzione del programma sarà maggiore. 
 ## Strong Scaling
-Qui si metterà su grafico lo strong scaling
+Per quanto riguarda lo strong scaling è stato scelto come dataset un insieme di file da leggere dal peso complessivo pari a 5MB ottenendo i seguenti risultati:
+
+![strong scaling image](/img/strong_scaling.png)
+
+Dal grafico si evince che l'algoritmo aumenta sensibilmente passando da una versione sequenziale (ossia un unico slave che effettua il conteggio delle parole), ad una versione parallelizzata aumentando le prestazioni di oltre il 50% da 1 a 2 worker, ragggiungendo dei tempi stabili (all'incirca un minuto) a partire dagli 8 worker in poi. Questo è dovuto al fatto che seppure il tempo impiegato dal master (e quindi sequenziale) rimane costante, il tempo necessario per contare le parole migliora all'aumentare dei worker.
