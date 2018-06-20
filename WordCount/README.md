@@ -11,8 +11,16 @@ Posizionarsi nella directory del progetto ed eseguire
 `make`
 
 ## Esecuzione
-oppure
-`mpirun -np workers ./WordCount `
+posizionarsi nella directory del progetto ed eseguire
+`mpirun -np 1_parametro ./WordCount 2_parametro`
+dove:
+
+1_parametro: è il numero di processi: Deve essere eseguito a partire da n>=2  (1 processo master ed n - 1 slave)
+2_parametro: è una path relativa o assolta alla directory contentente i file di test escludendo lo slash finale.
+
+Esempio: contare le parole di tutti i file presenti nella directory strong_scaling con un master ed uno slave (assumendo di trovarsi nella directory del progetto):
+
+`mpirun -np 2 ./WordCount ./test/strong_scaling`
 
 
 ## Table of Contents
