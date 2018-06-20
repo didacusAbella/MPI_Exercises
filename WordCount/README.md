@@ -6,11 +6,11 @@ Questo programma effettua un word count parallelo usando __MPI__ ed esclusivamen
 - Libreria MPI installata
 - Make installato
 
-## Installazione
+## Instruzioni Compilazione
 Posizionarsi nella directory del progetto ed eseguire
 `make`
 
-## Esecuzione
+## Istruzioni Esecuzione
 posizionarsi nella directory del progetto ed eseguire
 `mpirun -np 1_parametro ./WordCount 2_parametro`
 dove:
@@ -28,15 +28,30 @@ Esempio: contare le parole di tutti i file presenti nella directory strong_scali
 2. [Benchmark](#benchmark)
     1. [Weak Scaling](#weak-scaling)
     2. [Strong Scaling](#strong-scaling)
+3. [Ringraziamenti](#ringraziamenti)
 
 ## Algoritmo
-La risoluzione di questo problema è stata effettuata cercando di simulare il paradigma __Map/Reduce__. L'architettura di questo programma è del tipo master/slave che si svolge in 4 fasi:
+La risoluzione di questo problema è stata effettuata cercando di simulare il paradigma __Map/Reduce__. L'architettura di questo programma è del tipo master/slave dove ogni macchina utilizza la seguente struttura per manipolare le informazioni:
+
+```c
+typedef struct
+{
+  line_t *task_lines; //array di linee
+  word_t *task_words; //array di parole
+  int line_size; //size totale vettore linee
+  int word_size; //size totale vettore parole
+  int lines_used; //size utilizzata dal vettore linee
+  int words_used; //size utilizzata dal vettore parole
+}task_t;
+```
+Ed è composta da 4 Fasi:
 
 ### Fase di Split
 Il master riceve in input una path, assoluta o relativa, di una directory e scansiona tutti i file (ecludento path 'speciali' come ad esempio file nascosti) e conta le linee totali. Le linee sono mappate all'interno di un ADT che ha questa struttura:
-```
-typedef struct line_t{
-    char file[PATH_LENGTH]; //path di ogi file
+```c
+typedef struct
+{
+    char file[PATH_LENGTH]; //path di ogni file
     unsigned long start; //offset inizio linea
     unsigned long end; //offset fine linea
 }line_t;
@@ -45,11 +60,12 @@ Le linee sono raccole all'interno di un array e mandate ad ogni processore con l
 
 ### Fase di Map
 Gli slave, una volta ricevute le linee da processare, eseguono la funzione __map__ che tokenizza le linee secondo i delimitatori definiti nella macro __TOKENIZER__ ed estrae le parole in un ADT di questo tipo:
-```
-typedef struct word_t {
-    char word[MAX_WORD]; // parola
+```c
+typedef struct
+{
+    char word[MAX_WORD_CHARS]; // parola
     int frequency; // frequenza
-}word_t;
+} word_t;
 ```
 Che vengono aggiunge ad un array.
 
@@ -58,6 +74,8 @@ Ogni slave effettua localmente il conteggio del proprio array di parole e il ris
 
 ### Fase di Reduce
 Ogni slave manda al master il proprio array con la funzione __MPI_Gatherv__ e quest'ultimo usa la funzione __reduce__ per calcolare le frequenze totali che ridirige sullo standard output. Anche in questo caso per inviare porzioni di memoria con contigue è stato utilizzato __MPI_create_struct__.
+
+
 
 ## Benchmark
 Sono stati effettuati i benchmark con la seguente configurazione:
@@ -75,14 +93,22 @@ Sono stati effettuati i benchmark con la seguente configurazione:
 | Ubuntu 12.04      |1.4.3             |4.6.3         |
 
 ## Weak Scaling
-Il weak scaling è stato misurato mantenendo costante il numero di linee all'aumentare dei worker ed è pari a 300 linee.
+Un test di tipo weak scaling, fissa l'ammontare di lavoro per processore e confronta i tempi di esecuzione all'aumentare dei processori. Essendo che ogni processore ha lo stresso carico di lavoro, il tempo ideale dovrebbe rimanere costante. In questo benchmark è stato tenuto un carico di lavoro costante pari a 1000 linee per ogni slave e confrontato con il tempo ideale (tempo di esecuzione di 1 master e 1 slave ) ottenendo i seguenti risultati:
 
 ![weak scaling image](/img/weak_scaling.png)
 
-Dal grafico si nota che all'aumentare dei processori il tempo di esecuzione dell'algoritmo aumenta e questo è dovuto al fatto che il master deve leggere tutti i file per contare le linee complessive e decidere le porzioni che devono leggere i rispettivi slave. Quindi maggiori saranno le linee da processare, maggiore sarà il tempo necessario per il master a processarle tutte e di conseguenza il tempo di esecuzione del programma sarà maggiore. 
+Dal grafico si nota che all'aumentare dei processori il tempo di esecuzione dell'algoritmo aumenta e questo è dovuto al fatto che la sezione di codice sequenziale risulta richiedere più tempo della sezione parallela in quanto un aumento delle linee da processare comporta dei tempi maggiori da parte del master di leggere tutte le linee e inviare le porzioni necessarie ai rispettivi slave.
+
 ## Strong Scaling
-Per quanto riguarda lo strong scaling è stato scelto come dataset un insieme di file da leggere dal peso complessivo pari a 5MB ottenendo i seguenti risultati:
+Un test di tipo strong scaling, fissata la taglia del problema, calcola le prestazioni all'aumentare dei processori. In questo benchmark sono stati presi in consideraizone un insieme di 10 file testuali la cui grandezza totale è pari a 5MB e il tempo ideale è stato preso considerando il tempo di esecuzione di 1 master e di 1 slave, dividendolo per il numero degli slave ad ogni esecuzione. I risultati sono i seguenti:
 
 ![strong scaling image](/img/strong_scaling.png)
 
-Dal grafico si evince che l'algoritmo aumenta sensibilmente passando da una versione sequenziale (ossia un unico slave che effettua il conteggio delle parole), ad una versione parallelizzata aumentando le prestazioni di oltre il 50% da 1 a 2 worker, ragggiungendo dei tempi stabili (all'incirca un minuto) a partire dagli 8 worker in poi. Questo è dovuto al fatto che seppure il tempo impiegato dal master (e quindi sequenziale) rimane costante, il tempo necessario per contare le parole migliora all'aumentare dei worker.
+Dal grafico risulta che il programma implementato ha dei tempi di esecuzione maggiori del tempo ideale, in quanto cìè da considerare 3 fattori chiave che inficiano sulle prestazioni del programma:
+
+1. __Sezione sequenziale del processo master:__ Il master deve leggere tutti i file dal disco, contare le linee e allocare un vettore di queste ultime, dividere il carico e spedire ad ogni processore.
+2. __Overhead dovuto alla comunicazione:__ Il master spedisce prima le size di cui ogni slave ha bisogno per allocare il vettore delle linee con una Scatter e poi usa una Scatterv per spedire le porzioni di linee. Durante la fase di reduce totale avviene il processo inverso ovvero riceve, tramite una Gather, dagli slave le size di ogni combiner task per allocare un vettore di adeguate dimensioni e con una Gatherv le i rispettivi vettori di parole.
+3. __Latenza della rete__
+
+## Ringraziamenti
+Si ringrazia il sito del progetto Gutemberg per i file testuali con cui effettuare i test.
