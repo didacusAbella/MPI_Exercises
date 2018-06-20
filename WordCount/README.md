@@ -11,10 +11,8 @@ Posizionarsi nella directory del progetto ed eseguire
 `make`
 
 ## Esecuzione
-Una volta compilato eseguire lo script
-`run.sh`
 oppure
-`mpirun ./WordCount ./test`
+`mpirun -np workers ./WordCount `
 
 
 ## Table of Contents

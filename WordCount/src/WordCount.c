@@ -17,6 +17,18 @@ int main(int argc, char **argv){
   MPI_Type_commit(&MPI_Line);
   MPI_Type_commit(&MPI_Word);
   /*******************************************/
+  if(tasks == 1)
+  {
+    task_t *sequential;
+    task_ctor(&sequential, 10, 10);
+    line_splitter(argv[1], &sequential);
+    map(&sequential);
+    reduce(&sequential);
+    print_words(sequential);
+    task_dtor(sequential);
+    MPI_Finalize();
+    exit(EXIT_SUCCESS);
+  }
   task_t *master_task, *slave_task;
   if(rank == MASTER)
   {
