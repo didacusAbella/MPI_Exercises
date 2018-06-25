@@ -12,11 +12,11 @@ Posizionarsi nella directory del progetto ed eseguire
 
 ## Istruzioni Esecuzione
 posizionarsi nella directory del progetto ed eseguire
-`mpirun -np 1_parametro ./WordCount 2_parametro`
+`mpirun -np <slaves> ./WordCount <path>`
 dove:
 
-1_parametro: è il numero di processi: Deve essere eseguito a partire da n>=2  (1 processo master ed n - 1 slave)
-2_parametro: è una path relativa o assolta alla directory contentente i file di test escludendo lo slash finale.
+slaves: è il numero di processi: Deve essere eseguito a partire da n >= 2  (1 processo master ed n - 1 slave)
+path: è una path relativa o assolta alla directory contentente i file di test escludendo lo slash finale.
 
 Esempio: contare le parole di tutti i file presenti nella directory strong_scaling con un master ed uno slave (assumendo di trovarsi nella directory del progetto):
 
@@ -92,23 +92,24 @@ Sono stati effettuati i benchmark con la seguente configurazione:
 |-------------------|------------------|--------------|
 | Ubuntu 12.04      |1.4.3             |4.6.3         |
 
+N.B: Se le immagini non si vedono sono presenti nella cartella __img__
+
 ## Weak Scaling
 Un test di tipo weak scaling, fissa l'ammontare di lavoro per processore e confronta i tempi di esecuzione all'aumentare dei processori. Essendo che ogni processore ha lo stresso carico di lavoro, il tempo ideale dovrebbe rimanere costante. In questo benchmark è stato tenuto un carico di lavoro costante pari a 1000 linee per ogni slave e confrontato con il tempo ideale (tempo di esecuzione di 1 master e 1 slave ) ottenendo i seguenti risultati:
 
-![weak scaling image](/img/weak_scaling.png)
+![weak scaling image](./img/weak_scaling.png)
 
 Dal grafico si nota che all'aumentare dei processori il tempo di esecuzione dell'algoritmo aumenta e questo è dovuto al fatto che la sezione di codice sequenziale risulta richiedere più tempo della sezione parallela in quanto un aumento delle linee da processare comporta dei tempi maggiori da parte del master di leggere tutte le linee e inviare le porzioni necessarie ai rispettivi slave.
 
 ## Strong Scaling
 Un test di tipo strong scaling, fissata la taglia del problema, calcola le prestazioni all'aumentare dei processori. In questo benchmark sono stati presi in consideraizone un insieme di 10 file testuali la cui grandezza totale è pari a 5MB e il tempo ideale è stato preso considerando il tempo di esecuzione di 1 master e di 1 slave, dividendolo per il numero degli slave ad ogni esecuzione. I risultati sono i seguenti:
 
-![strong scaling image](/img/strong_scaling.png)
+![strong scaling image](./img/strong_scaling.png)
 
-Dal grafico risulta che il programma implementato ha dei tempi di esecuzione maggiori del tempo ideale, in quanto cìè da considerare 3 fattori chiave che inficiano sulle prestazioni del programma:
+Dal grafico risulta che il programma implementato ha dei tempi di esecuzione maggiori del tempo ideale, in quanto bisogna considerare 2 fattori chiave che inficiano sulle prestazioni del programma:
 
-1. __Sezione sequenziale del processo master:__ Il master deve leggere tutti i file dal disco, contare le linee e allocare un vettore di queste ultime, dividere il carico e spedire ad ogni processore.
-2. __Overhead dovuto alla comunicazione:__ Il master spedisce prima le size di cui ogni slave ha bisogno per allocare il vettore delle linee con una Scatter e poi usa una Scatterv per spedire le porzioni di linee. Durante la fase di reduce totale avviene il processo inverso ovvero riceve, tramite una Gather, dagli slave le size di ogni combiner task per allocare un vettore di adeguate dimensioni e con una Gatherv le i rispettivi vettori di parole.
-3. __Latenza della rete__
+1. __Overhead dovuto alla comunicazione:__ Il master spedisce prima le size di cui ogni slave ha bisogno per allocare il vettore delle linee con una Scatter e poi usa una Scatterv per spedire le porzioni di linee. Durante la fase di reduce totale avviene il processo inverso ovvero riceve, tramite una Gather, dagli slave le size di ogni combiner task per allocare un vettore di adeguate dimensioni e con una Gatherv i rispettivi vettori di parole.
+2. __Latenza della rete__
 
 ## Ringraziamenti
 Si ringrazia il sito del progetto Gutemberg per i file testuali con cui effettuare i test.
