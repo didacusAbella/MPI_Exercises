@@ -7,16 +7,21 @@ Questo programma effettua un word count parallelo usando __MPI__ ed esclusivamen
 - Make installato
 
 ## Instruzioni Compilazione
-Posizionarsi nella directory del progetto ed eseguire
+Posizionarsi nella directory del progetto ed eseguire:
+
 `make`
 
-## Istruzioni Esecuzione
-posizionarsi nella directory del progetto ed eseguire
-`mpirun -np <slaves> ./WordCount <path>`
-dove:
+Per cancellare i compilati eseguire:
 
-slaves: è il numero di processi: Deve essere eseguito a partire da n >= 2  (1 processo master ed n - 1 slave)
-path: è una path relativa o assolta alla directory contentente i file di test escludendo lo slash finale.
+`make clean`
+
+## Istruzioni Esecuzione
+posizionarsi nella directory del progetto ed eseguire:
+
+`mpirun -np <slaves> ./WordCount <path>`
+
+* __slaves__: è il numero di processi: Deve essere eseguito a partire da n >= 2  (1 processo master ed n - 1 slave)
+* __path__: è una path relativa o assolta alla directory contentente i file di test escludendo lo slash finale.
 
 Esempio: contare le parole di tutti i file presenti nella directory strong_scaling con un master ed uno slave (assumendo di trovarsi nella directory del progetto):
 
@@ -28,10 +33,11 @@ Esempio: contare le parole di tutti i file presenti nella directory strong_scali
 2. [Benchmark](#benchmark)
     1. [Weak Scaling](#weak-scaling)
     2. [Strong Scaling](#strong-scaling)
-3. [Ringraziamenti](#ringraziamenti)
+3. [Conclusioni](#conclusioni)
+4. [Ringraziamenti](#ringraziamenti)
 
 ## Algoritmo
-La risoluzione di questo problema è stata effettuata cercando di simulare il paradigma __Map/Reduce__. L'architettura di questo programma è del tipo master/slave dove ogni macchina utilizza la seguente struttura per manipolare le informazioni:
+La risoluzione di questo problema è stata effettuata cercando di simulare il paradigma __Map/Reduce__. L'architettura di questo programma è del tipo master/slave dove ogni processo MPI utilizza la seguente struttura per manipolare le informazioni:
 
 ```c
 typedef struct
@@ -56,10 +62,11 @@ typedef struct
     unsigned long end; //offset fine linea
 }line_t;
 ```
-Le linee sono raccole all'interno di un array e mandate ad ogni processore con la funzione __MPI_Scatterv__ Per inviare porzioni non contigue di memoria è stata usata la funzione __MPI_create_struct__. 
+Le linee sono raccole all'interno di un array e mandate ad ogni processore con la funzione __MPI_Scatterv__. Per inviare porzioni non contigue di memoria è stata usata la funzione __MPI_create_struct__. 
 
 ### Fase di Map
 Gli slave, una volta ricevute le linee da processare, eseguono la funzione __map__ che tokenizza le linee secondo i delimitatori definiti nella macro __TOKENIZER__ ed estrae le parole in un ADT di questo tipo:
+
 ```c
 typedef struct
 {
@@ -73,7 +80,7 @@ Che vengono aggiunge ad un array.
 Ogni slave effettua localmente il conteggio del proprio array di parole e il risultato viene trasferito in un nuovo array più compatto.
 
 ### Fase di Reduce
-Ogni slave manda al master il proprio array con la funzione __MPI_Gatherv__ e quest'ultimo usa la funzione __reduce__ per calcolare le frequenze totali che ridirige sullo standard output. Anche in questo caso per inviare porzioni di memoria con contigue è stato utilizzato __MPI_create_struct__.
+Ogni slave manda al master il proprio array con la funzione __MPI_Gatherv__ e quest'ultimo usa la funzione __reduce__ per calcolare le frequenze totali che ridirige sullo standard output. Anche in questo caso per inviare porzioni di memoria non contigue è stato utilizzato __MPI_create_struct__.
 
 
 
@@ -92,14 +99,16 @@ Sono stati effettuati i benchmark con la seguente configurazione:
 |-------------------|------------------|--------------|
 | Ubuntu 12.04      |1.4.3             |4.6.3         |
 
-N.B: Se le immagini non si vedono sono presenti nella cartella __img__
+I tempi di esecuzione sono stati calcolati con la funzione `time`
+
+N.B: Se le immagini sottostanti non si vedono sono presenti nella cartella __img__.
 
 ## Weak Scaling
 Un test di tipo weak scaling, fissa l'ammontare di lavoro per processore e confronta i tempi di esecuzione all'aumentare dei processori. Essendo che ogni processore ha lo stresso carico di lavoro, il tempo ideale dovrebbe rimanere costante. In questo benchmark è stato tenuto un carico di lavoro costante pari a 1000 linee per ogni slave e confrontato con il tempo ideale (tempo di esecuzione di 1 master e 1 slave ) ottenendo i seguenti risultati:
 
 ![weak scaling image](./img/weak_scaling.png)
 
-Dal grafico si nota che all'aumentare dei processori il tempo di esecuzione dell'algoritmo aumenta e questo è dovuto al fatto che la sezione di codice sequenziale risulta richiedere più tempo della sezione parallela in quanto un aumento delle linee da processare comporta dei tempi maggiori da parte del master di leggere tutte le linee e inviare le porzioni necessarie ai rispettivi slave.
+Dal grafico si nota che all'aumentare dei processori il tempo di esecuzione dell'algoritmo aumenta e questo è dovuto al fatto che la sezione di codice sequenziale risulta richiedere più tempo della sezione parallela in quanto un aumento delle linee da processare comporta dei tempi maggiori da parte del master per leggere tutte le linee e inviare le porzioni necessarie ai rispettivi slave.
 
 ## Strong Scaling
 Un test di tipo strong scaling, fissata la taglia del problema, calcola le prestazioni all'aumentare dei processori. In questo benchmark sono stati presi in consideraizone un insieme di 10 file testuali la cui grandezza totale è pari a 5MB e il tempo ideale è stato preso considerando il tempo di esecuzione di 1 master e di 1 slave, dividendolo per il numero degli slave ad ogni esecuzione. I risultati sono i seguenti:
@@ -110,6 +119,13 @@ Dal grafico risulta che il programma implementato ha dei tempi di esecuzione mag
 
 1. __Overhead dovuto alla comunicazione:__ Il master spedisce prima le size di cui ogni slave ha bisogno per allocare il vettore delle linee con una Scatter e poi usa una Scatterv per spedire le porzioni di linee. Durante la fase di reduce totale avviene il processo inverso ovvero riceve, tramite una Gather, dagli slave le size di ogni combiner task per allocare un vettore di adeguate dimensioni e con una Gatherv i rispettivi vettori di parole.
 2. __Latenza della rete__
+
+## Conclusioni
+
+La soluzione presentata mostra scalabilità all'aumentare degli slave in esecuzione ma è fortemente penalizzato dalla porzione sequenziale di questo programma. Possibili miglioramenti vanno ricercati cercando di migliorare quest'ultima attraverso:
+
+1. __Strutture Dati più efficienti:__ In questo problema l'utilizzo di un Hash Map, partendo dal presupposto che utilizzi una buona funzione di hashing che minimizzi al meglio le collisioni, aumenterebbe le prestazioni del programma in quanto i tempi di ricerca migliorerebbero.
+2. __Migliore Gestione dell'I/O su Disco:__ La parte di inizializzazione del master per dividere il carico del problema rappresenta la porzione dell'algoritmo che impiega più tempo in quanto coinvolge letture dal disco. Le letture sono state effettuate usando la __fgets__ che non è il modo più efficiente (alternative valide sarebbero fread o tecniche di memory mapping) ma semplifica di molto il conteggio delle linee.
 
 ## Ringraziamenti
 Si ringrazia il sito del progetto Gutemberg per i file testuali con cui effettuare i test.
