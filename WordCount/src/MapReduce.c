@@ -119,6 +119,7 @@ void reduce(task_t **slave_task)
     {
       word_t *compacted_word;
       word_ctor(&compacted_word,(*slave_task)->task_words[i].text);
+      compacted_word->frequency = (*slave_task)->task_words[i].frequency;
       *(compacted_array + tmp_size) = *compacted_word;
       tmp_size++;
     }
